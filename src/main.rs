@@ -3,11 +3,17 @@ extern crate byteorder;
 use std::fs::File;
 use std::io::Read;
 use std::io::BufReader;
+use std::string::String;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 static MAGIC_NUM: u32 = 0x6d736100;
 static SUPPORTED_VERSION: u32 = 0x1;
 //static endOpcode: i32 = 0x0b;
+
+pub fn to_hex_string(bytes: Vec<u8>) -> String {
+    let strs: Vec<String> = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    strs.join(" ")
+}
 
 struct Parser {
     file: BufReader<File>,
@@ -16,8 +22,18 @@ struct Parser {
 impl Parser {
     fn new() -> Parser {
         Parser {
-            file: BufReader::new(File::open("examples/empty.wasm").unwrap()),
+            file: BufReader::new(File::open("examples/add.wasm").unwrap()),
         }
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        self.file.read_u8().unwrap()
+    }
+
+    fn read_bytes(&mut self, len: u64) -> Vec<u8> {
+        let mut name_bytes = vec![0u8; len as usize];
+        self.file.read_exact(&mut name_bytes).unwrap();
+        return name_bytes;
     }
 
     fn read_uint32(&mut self) -> u32 {
@@ -36,10 +52,10 @@ impl Parser {
         self.file.read_i64::<LittleEndian>().unwrap()
     }
 
-    fn read_varuint_len(&mut self, len: i32) -> Option<(u64, i32)> {
+    fn read_varuint_len(&mut self, len: i32) -> Option<(u64, u64)> {
         let mut res: u64 = 0;
         let mut shift = 0;
-        let mut read_bytes = 0;
+        let mut read_bytes: u64 = 0;
         loop {
             read_bytes += 1;
             let byte = match self.file.read_u8() {
@@ -52,7 +68,7 @@ impl Parser {
             }
             shift += 7;
         }
-        assert!(read_bytes <= (len as f32 / 7.0).ceil() as i32);
+        assert!(read_bytes <= (len as f32 / 7.0).ceil() as u64);
         return Some((res, read_bytes));
     }
 
@@ -60,10 +76,10 @@ impl Parser {
         self.read_varuint_len(len).unwrap().0
     }
 
-    fn read_varint_len(&mut self, len: i32) -> Option<(i64, i32)> {
+    fn read_varint_len(&mut self, len: i32) -> Option<(i64, u64)> {
         let mut res: i64 = 0;
         let mut shift = 0;
-        let mut read_bytes = 0;
+        let mut read_bytes: u64 = 0;
         let byte: u8 = 0;
         loop {
             read_bytes += 1;
@@ -80,7 +96,7 @@ impl Parser {
         if shift < len && (byte & 0x40) != 0 {
             res |= !0i64 << shift;
         }
-        assert!(read_bytes <= (len as f32 / 7.0).ceil() as i32);
+        assert!(read_bytes <= (len as f32 / 7.0).ceil() as u64);
         return Some((res, read_bytes));
     }
 
@@ -117,22 +133,68 @@ impl Parser {
         };
         print!(" ## Parsing section ...");
         let payload_len = self.read_varuint(32);
-        let mut name_offset = 0;
+        let mut name_offset: u64 = 0;
+        let mut name: String = String::new();
         if sec_id == 0 {
             let (name_len, name_len_field_size) = self.read_varuint_len(32).unwrap();
-            name_offset = (name_len_field_size as i64) + (name_len as i64);
-            let mut name_bytes = vec![0u8; name_len as usize];
-            self.file.read_exact(&mut name_bytes).unwrap();
-            let name = std::str::from_utf8(&name_bytes).unwrap();
+            name_offset = (name_len_field_size as u64) + name_len;
+            let name_bytes = self.read_bytes(name_len);
+            name = String::from_utf8(name_bytes).unwrap();
             println!("[name = '{}']", name)
         } else {
             println!("[id = {}]", sec_id);
         }
-        let payload_data_len = payload_len - (name_offset as u64);
-        let mut tmp = vec![0u8; payload_data_len as usize];
-        self.file.read_exact(&mut tmp).unwrap();
+        let payload_data_len = payload_len - name_offset;
+
+        println!("Payload length: {} bytes", payload_data_len);
+        match sec_id {
+            0x0 => {
+                if name == "name" {
+                    self.parse_name_custom_section(payload_data_len);
+                } else {
+                    self.parse_custom_section(&name, payload_data_len); // some other custom section
+                }
+            }
+            0x1 => self.parse_section_todo(payload_data_len),
+            0x2 => self.parse_section_todo(payload_data_len),
+            0x3 => self.parse_section_todo(payload_data_len),
+            0x4 => self.parse_section_todo(payload_data_len),
+            0x5 => self.parse_section_todo(payload_data_len),
+            0x6 => self.parse_section_todo(payload_data_len),
+            0x7 => self.parse_section_todo(payload_data_len),
+            0x8 => self.parse_section_todo(payload_data_len),
+            0x9 => self.parse_section_todo(payload_data_len),
+            0xA => self.parse_section_todo(payload_data_len),
+            0xB => self.parse_section_todo(payload_data_len),
+            _ => panic!("Unknown Section ID!"),
+        }
+
         println!(" ++ Done parsing section");
         return true;
+    }
+
+    fn parse_section_todo(&mut self, payload_len: u64) {
+        println!("  # Parsing section (TODO)");
+        self.read_bytes(payload_len);
+        println!("  + Parsing section (TODO) done")
+    }
+
+    fn parse_name_custom_section(&mut self, payload_len: u64) {
+        println!("  # Parsing name custom section");
+        let payload = self.read_bytes(payload_len);
+        println!("  + Parsing name custom section done")
+    }
+
+    fn parse_custom_section(&mut self, name: &str, payload_len: u64) {
+        println!("  # Parsing custom section [name = '{}']", name);
+        let payload = self.read_bytes(payload_len);
+        println!(
+            "Custom Section Data [len={}] = {}...",
+            payload_len,
+            to_hex_string(payload)
+        );
+        println!("  + Parsing custom section done")
+        // return name, payload
     }
 }
 
