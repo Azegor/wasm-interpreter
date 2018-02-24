@@ -17,11 +17,14 @@ pub fn to_hex_string(bytes: Vec<u8>) -> String {
 }
 
 #[derive(Debug)]
+struct FnId(u32);
+
+#[derive(Debug)]
 enum NameType {
+    Unknown = -1,
     Module = 0,
     Function = 1,
     Local = 2,
-    Unknown = -1,
 }
 
 impl NameType {
@@ -35,6 +38,7 @@ impl NameType {
     }
 }
 
+#[derive(Debug)]
 struct Naming {
     index: u32,
     name: String,
@@ -49,13 +53,15 @@ impl Naming {
     }
 }
 
+/*
 impl std::fmt::Debug for Naming {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({}: '{}')", self.index, self.name)
     }
 }
+*/
 
-struct Parser {
+pub struct Parser {
     file: BufReader<File>,
 }
 
@@ -180,11 +186,10 @@ impl Parser {
 
     // ----------
 
-    fn parse(&mut self) {
+    pub fn parse(&mut self) {
         self.parse_preamble();
 
-        let metadata = self.file.get_ref().metadata().unwrap();
-        let file_len = metadata.len();
+        let file_len = self.file.get_ref().metadata().unwrap().len();
         while self.get_current_offset() < file_len {
             self.parse_section();
         }
@@ -220,7 +225,6 @@ impl Parser {
         }
         let payload_data_len = payload_len - name_offset;
 
-        println!("Payload length: {} bytes", payload_data_len);
         match sec_id {
             0x0 => {
                 if name == "name" {
@@ -255,53 +259,61 @@ impl Parser {
     fn parse_name_custom_section(&mut self, payload_len: u32) {
         println!("  # Parsing name custom section");
         let init_offset = self.get_current_offset();
-        //name_module_section = None
-        //name_function_section = None
-        //name_local_section = None
-        //name_subsections = []
+
+        let mut name_module_section: Option<String> = None;
+        let mut name_function_section: Option<Vec<Naming>> = None;
+        type LocalNaming = (u32, Vec<Naming>);
+        let mut name_local_section: Option<Vec<LocalNaming>> = None;
+        type OtherSubSec = (NameType, Vec<u8>);
+        let mut name_subsections = Vec::<OtherSubSec>::new();
+
         while self.get_read_len(init_offset) < payload_len as u64 {
             let name_type = NameType::from_int(self.read_varuint(7));
             let name_payload_len = self.read_varuint32();
             // enforce ordering and uniqueness of the sections with assertions
             match name_type {
                 NameType::Module => {
-                    //assert!(name_module_section is None and name_function_section is None and name_local_section is None);
+                    assert!(
+                        name_module_section.is_none() && name_function_section.is_none()
+                            && name_local_section.is_none()
+                    );
                     let name_len = self.read_varuint32();
                     let name_str = self.read_utf8(name_len);
-                    println!("{}", name_str);
-                    // name_module_section = (name_str,)
+                    name_module_section = Some(name_str);
                 }
                 NameType::Function => {
-                    //assert name_function_section is None and name_local_section is None
+                    assert!(name_function_section.is_none() && name_local_section.is_none());
                     let name_map = self.read_name_map();
-                    println!("{:?}", name_map);
-                    //name_function_section = name_map
+                    name_function_section = Some(name_map);
                 }
                 NameType::Local => {
-                    //assert name_local_section is None
+                    assert!(name_local_section.is_none());
                     let count = self.read_varuint32();
-                    // let funcs = [];
+                    let mut locals = Vec::<(u32, Vec<Naming>)>::new();
                     for _ in 0..count {
                         let index = self.read_varuint32();
                         let local_map = self.read_name_map();
-                        println!("{}: {:?}", index, local_map);
-                        //func = (index, local_map);
-                        // funcs.push(func);
+                        let mut local = (index, local_map);
+                        locals.push(local);
                     }
-                    // name_local_section = funcs
+                    name_local_section = Some(locals);
                 }
                 _ => {
                     let name_payload_data = self.read_bytes(name_payload_len);
                     let name_payload = name_payload_data;
                     let subsection = (name_type, name_payload);
-                    println!("{:?}: '{:?}'", subsection.0, subsection.1);
-                    // name_subsections.append(subsection)
+                    name_subsections.push(subsection);
                 }
             }
         }
         assert!(self.get_read_len(init_offset) == payload_len as u64);
-        //result = (name_module_section, name_function_section, name_local_section, name_subsections)
-        //println!(result)
+        let result = (
+            name_module_section,
+            name_function_section,
+            name_local_section,
+            name_subsections,
+        );
+        println!("{:?}", result);
         println!("  + Parsing name custom section done")
         //return result
     }
@@ -322,13 +334,13 @@ impl Parser {
         println!("  # Parsing function section");
         let init_offset = self.get_current_offset();
         let count = self.read_varuint32();
-        let mut types = Vec::<u32>::new();
+        let mut types = Vec::<FnId>::new();
         for _ in 0..count {
-            let t = self.read_varuint32() as u32;
+            let t = FnId(self.read_varuint32());
             types.push(t);
         }
         assert!(self.get_read_len(init_offset) == payload_len as u64);
-        //println!("{}", types);
+        println!("{:?}", types);
         println!("  + Parsing function section done");
         // return types
     }
