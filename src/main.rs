@@ -66,11 +66,11 @@ impl Parser {
         }
     }
 
-    fn get_current_offset(&mut self) -> u32 {
-        self.file.seek(SeekFrom::Current(0)).unwrap() as u32
+    fn get_current_offset(&mut self) -> u64 {
+        self.file.seek(SeekFrom::Current(0)).unwrap()
     }
 
-    fn get_read_len(&mut self, old: u32) -> u32 {
+    fn get_read_len(&mut self, old: u64) -> u64 {
         self.get_current_offset() - old
     }
 
@@ -105,16 +105,13 @@ impl Parser {
         self.file.read_i64::<LittleEndian>().unwrap()
     }
 
-    fn read_varuint_impl(&mut self, len: i32) -> Option<(u64, u64)> {
+    fn read_varuint_len(&mut self, len: i32) -> (u64, u64) {
         let mut res: u64 = 0;
         let mut shift = 0;
         let mut read_bytes: u64 = 0;
         loop {
             read_bytes += 1;
-            let byte = match self.file.read_u8() {
-                Ok(b) => b,
-                Err(_) => return None,
-            };
+            let byte = self.read_byte();
             res |= (byte as u64 & 0x7f) << shift;
             if (byte & 0x80) == 0 {
                 break;
@@ -122,11 +119,15 @@ impl Parser {
             shift += 7;
         }
         assert!(read_bytes <= (len as f32 / 7.0).ceil() as u64);
-        return Some((res, read_bytes));
+        return (res, read_bytes);
     }
 
     fn read_varuint(&mut self, len: i32) -> u64 {
-        self.read_varuint_impl(len).unwrap().0
+        self.read_varuint_len(len).0
+    }
+
+    fn read_varuint7(&mut self) -> u8 {
+        self.read_varuint(7) as u8
     }
 
     fn read_varuint32(&mut self) -> u32 {
@@ -137,17 +138,14 @@ impl Parser {
         self.read_varuint(64)
     }
 
-    fn read_varint_impl(&mut self, len: i32) -> Option<(i64, u64)> {
+    fn read_varint_len(&mut self, len: i32) -> (i64, u64) {
         let mut res: i64 = 0;
         let mut shift = 0;
         let mut read_bytes: u64 = 0;
         let byte: u8 = 0;
         loop {
             read_bytes += 1;
-            let byte = match self.file.read_u8() {
-                Ok(b) => b,
-                Err(_) => return None,
-            };
+            let byte = self.read_byte();
             res |= (0x7f & byte as i64) << shift;
             shift += 7;
             if (byte & 0x80) == 0 {
@@ -158,11 +156,11 @@ impl Parser {
             res |= !0i64 << shift;
         }
         assert!(read_bytes <= (len as f32 / 7.0).ceil() as u64);
-        return Some((res, read_bytes));
+        return (res, read_bytes);
     }
 
     fn read_varint(&mut self, len: i32) -> i64 {
-        self.read_varint_impl(len).unwrap().0
+        self.read_varint_len(len).0
     }
 
     // ----------
@@ -185,7 +183,11 @@ impl Parser {
     fn parse(&mut self) {
         self.parse_preamble();
 
-        while self.parse_section() {}
+        let metadata = self.file.get_ref().metadata().unwrap();
+        let file_len = metadata.len();
+        while self.get_current_offset() < file_len {
+            self.parse_section();
+        }
     }
 
     fn parse_preamble(&mut self) {
@@ -202,18 +204,14 @@ impl Parser {
         println!("done");
     }
 
-    fn parse_section(&mut self) -> bool {
-        // this is the only way to check for EOF that I know of!
-        let sec_id = match self.read_varuint_impl(7) {
-            Some((val, _)) => val,
-            None => return false,
-        };
+    fn parse_section(&mut self) {
         print!(" ## Parsing section ...");
+        let sec_id = self.read_varuint7();
         let payload_len = self.read_varuint32();
         let mut name_offset: u32 = 0;
         let mut name: String = String::new();
         if sec_id == 0 {
-            let (name_len, name_len_field_size) = self.read_varuint_impl(32).unwrap();
+            let (name_len, name_len_field_size) = self.read_varuint_len(32);
             name_offset = (name_len_field_size + name_len) as u32;
             name = self.read_utf8(name_len as u32);
             println!("[name = '{}']", name)
@@ -246,7 +244,6 @@ impl Parser {
         }
 
         println!(" ++ Done parsing section");
-        return true;
     }
 
     fn parse_section_todo(&mut self, payload_len: u32) {
@@ -262,7 +259,7 @@ impl Parser {
         //name_function_section = None
         //name_local_section = None
         //name_subsections = []
-        while self.get_read_len(init_offset) < payload_len {
+        while self.get_read_len(init_offset) < payload_len as u64 {
             let name_type = NameType::from_int(self.read_varuint(7));
             let name_payload_len = self.read_varuint32();
             // enforce ordering and uniqueness of the sections with assertions
@@ -302,7 +299,7 @@ impl Parser {
                 }
             }
         }
-        assert!(self.get_read_len(init_offset) == payload_len);
+        assert!(self.get_read_len(init_offset) == payload_len as u64);
         //result = (name_module_section, name_function_section, name_local_section, name_subsections)
         //println!(result)
         println!("  + Parsing name custom section done")
@@ -330,7 +327,7 @@ impl Parser {
             let t = self.read_varuint32() as u32;
             types.push(t);
         }
-        assert!(self.get_read_len(init_offset) == payload_len);
+        assert!(self.get_read_len(init_offset) == payload_len as u64);
         //println!("{}", types);
         println!("  + Parsing function section done");
         // return types
