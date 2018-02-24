@@ -28,12 +28,87 @@ enum NameType {
 }
 
 impl NameType {
-    fn from_int(int: u64) -> NameType {
+    fn from_int(int: u8) -> NameType {
         match int {
             0 => NameType::Module,
             1 => NameType::Function,
             2 => NameType::Local,
             _ => NameType::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ResizableLimits(bool, u32, Option<u32>);
+
+#[derive(Debug)]
+enum ExternalKind {
+    Func(u32),
+    Table(u8, ResizableLimits),
+    Memory(ResizableLimits),
+    Global(Type, bool),
+}
+
+#[derive(Debug)]
+struct ImportEntry(String, String, ExternalKind);
+
+#[derive(Debug)]
+enum Type {
+    I32 = 0x7f,
+    I64 = 0x7e,
+    F32 = 0x7d,
+    F64 = 0x7c,
+    anyfunc = 0x70,
+    func = 0x60,
+    empty_block = 0x40,
+}
+
+impl Type {
+    fn from_int(int: u8) -> Type {
+        match int {
+            0x7f => Type::I32,
+            0x7e => Type::I64,
+            0x7d => Type::F32,
+            0x7c => Type::F64,
+            0x70 => Type::anyfunc,
+            0x60 => Type::func,
+            0x40 => Type::empty_block,
+            _ => panic!("unknown Type value!"),
+        }
+    }
+
+    fn value_type(int: u8) -> Type {
+        match int {
+            0x7f => Type::I32,
+            0x7e => Type::I64,
+            0x7d => Type::F32,
+            0x7c => Type::F64,
+            _ => panic!("unknown ValueType value!"),
+        }
+    }
+
+    fn block_type(int: u8) -> Type {
+        match int {
+            0x7f => Type::I32,
+            0x7e => Type::I64,
+            0x7d => Type::F32,
+            0x7c => Type::F64,
+            0x40 => Type::empty_block,
+            _ => panic!("unknown BlockType value!"),
+        }
+    }
+
+    fn elem_type(int: u8) -> Type {
+        match int {
+            0x70 => Type::anyfunc,
+            _ => panic!("unknown ElemType value!"),
+        }
+    }
+
+    fn func_type(int: u8) -> Type {
+        match int {
+            0x60 => Type::func,
+            _ => panic!("unknown FuncType value!"),
         }
     }
 }
@@ -61,6 +136,9 @@ impl std::fmt::Debug for Naming {
 }
 */
 
+#[derive(Debug)]
+struct FuncType(Type, Vec<Type>, Option<Type>);
+
 pub struct Parser {
     file: BufReader<File>,
 }
@@ -68,7 +146,7 @@ pub struct Parser {
 impl Parser {
     fn new() -> Parser {
         Parser {
-            file: BufReader::new(File::open("examples/xor.wasm").unwrap()),
+            file: BufReader::new(File::open("examples/wasm_test.wasm").unwrap()),
         }
     }
 
@@ -132,6 +210,10 @@ impl Parser {
         self.read_varuint_len(len).0
     }
 
+    fn read_varuint1(&mut self) -> bool {
+        self.read_varuint(7) != 0
+    }
+
     fn read_varuint7(&mut self) -> u8 {
         self.read_varuint(7) as u8
     }
@@ -184,6 +266,69 @@ impl Parser {
         return names;
     }
 
+    fn read_external_kind(&mut self) -> ExternalKind {
+        match self.read_byte() {
+            0 => self.read_ext_func_type(),
+            1 => self.read_ext_table_type(),
+            2 => self.read_ext_memory_type(),
+            3 => self.read_ext_global_type(),
+            _ => panic!("Unknown ExternalKind value"),
+        }
+    }
+
+    fn read_ext_func_type(&mut self) -> ExternalKind {
+        ExternalKind::Func(self.read_varuint32())
+    }
+
+    fn read_ext_table_type(&mut self) -> ExternalKind {
+        let elem_type = self.read_varuint7();
+        let limits = self.read_resizable_limits();
+        ExternalKind::Table(elem_type, limits)
+    }
+
+    fn read_ext_memory_type(&mut self) -> ExternalKind {
+        ExternalKind::Memory(self.read_resizable_limits())
+    }
+
+    fn read_ext_global_type(&mut self) -> ExternalKind {
+        let content_type = self.read_value_type();
+        let mutability = self.read_varuint1();
+        ExternalKind::Global(content_type, mutability)
+    }
+
+    fn read_value_type(&mut self) -> Type {
+        let ptype = self.read_varuint7();
+        Type::value_type(ptype)
+    }
+
+    fn read_resizable_limits(&mut self) -> ResizableLimits {
+        let limits_flag = self.read_varuint1();
+        let limits_initial = self.read_varuint32();
+        let limits_maximum = if limits_flag {
+            Some(self.read_varuint32())
+        } else {
+            None
+        };
+        ResizableLimits(limits_flag, limits_initial, limits_maximum)
+    }
+
+    fn read_func_type(&mut self) -> FuncType {
+        let form = Type::func_type(self.read_varuint7());
+        let param_count = self.read_varuint32();
+        let mut param_types = Vec::<Type>::new();
+        for _ in 0..param_count {
+            let param_type = self.read_value_type();
+            param_types.push(param_type);
+        }
+        let return_count = self.read_varuint1();
+        let return_type = if return_count {
+            Some(self.read_value_type())
+        } else {
+            None
+        };
+        FuncType(form, param_types, return_type)
+    }
+
     // ----------
 
     pub fn parse(&mut self) {
@@ -233,8 +378,8 @@ impl Parser {
                     self.parse_custom_section(&name, payload_data_len); // some other custom section
                 }
             }
-            0x1 => self.parse_section_todo(payload_data_len),
-            0x2 => self.parse_section_todo(payload_data_len),
+            0x1 => self.parse_type_section(payload_data_len),
+            0x2 => self.parse_import_section(payload_data_len),
             0x3 => self.parse_function_section(payload_data_len),
             0x4 => self.parse_section_todo(payload_data_len),
             0x5 => self.parse_section_todo(payload_data_len),
@@ -268,7 +413,7 @@ impl Parser {
         let mut name_subsections = Vec::<OtherSubSec>::new();
 
         while self.get_read_len(init_offset) < payload_len as u64 {
-            let name_type = NameType::from_int(self.read_varuint(7));
+            let name_type = NameType::from_int(self.read_varuint7());
             let name_payload_len = self.read_varuint32();
             // enforce ordering and uniqueness of the sections with assertions
             match name_type {
@@ -328,6 +473,40 @@ impl Parser {
         );
         println!("  + Parsing custom section done")
         // return name, payload
+    }
+
+    fn parse_type_section(&mut self, payload_len: u32) {
+        println!("  # Parsing type section");
+        let init_offset = self.get_current_offset();
+        let count = self.read_varuint32();
+        let mut types = Vec::<FuncType>::new();
+        for _ in 0..count {
+            types.push(self.read_func_type());
+        }
+        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        println!("{:?}", types);
+        println!("  + Parsing type section done");
+        // return types
+    }
+
+    fn parse_import_section(&mut self, payload_len: u32) {
+        println!("  # Parsing import section");
+        let init_offset = self.get_current_offset();
+        let count = self.read_varuint32();
+        let mut entries = Vec::<ImportEntry>::new();
+        for _ in 0..count {
+            let module_len = self.read_varuint32();
+            let module_str = self.read_utf8(module_len);
+            let field_len = self.read_varuint32();
+            let field_str = self.read_utf8(field_len);
+            let typ = self.read_external_kind();
+            let import_entry = ImportEntry(module_str, field_str, typ);
+            entries.push(import_entry);
+        }
+        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        println!("{:?}", entries);
+        println!("  + Parsing import section done");
+        //return entries;
     }
 
     fn parse_function_section(&mut self, payload_len: u32) {
