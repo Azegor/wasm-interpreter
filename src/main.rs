@@ -16,6 +16,45 @@ pub fn to_hex_string(bytes: Vec<u8>) -> String {
     strs.join(" ")
 }
 
+#[derive(Debug)]
+enum NameType {
+    Module = 0,
+    Function = 1,
+    Local = 2,
+    Unknown = -1,
+}
+
+impl NameType {
+    fn from_int(int: u64) -> NameType {
+        match int {
+            0 => NameType::Module,
+            1 => NameType::Function,
+            2 => NameType::Local,
+            _ => NameType::Unknown,
+        }
+    }
+}
+
+struct Naming {
+    index: u32,
+    name: String,
+}
+
+impl Naming {
+    fn new(idx: u32, n: String) -> Naming {
+        Naming {
+            index: idx,
+            name: n,
+        }
+    }
+}
+
+impl std::fmt::Debug for Naming {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({}: '{}')", self.index, self.name)
+    }
+}
+
 struct Parser {
     file: BufReader<File>,
 }
@@ -23,15 +62,15 @@ struct Parser {
 impl Parser {
     fn new() -> Parser {
         Parser {
-            file: BufReader::new(File::open("examples/add.wasm").unwrap()),
+            file: BufReader::new(File::open("examples/xor.wasm").unwrap()),
         }
     }
 
-    fn get_current_offset(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap()
+    fn get_current_offset(&mut self) -> u32 {
+        self.file.seek(SeekFrom::Current(0)).unwrap() as u32
     }
 
-    fn get_read_len(&mut self, old: u64) -> u64 {
+    fn get_read_len(&mut self, old: u32) -> u32 {
         self.get_current_offset() - old
     }
 
@@ -39,10 +78,15 @@ impl Parser {
         self.file.read_u8().unwrap()
     }
 
-    fn read_bytes(&mut self, len: u64) -> Vec<u8> {
+    fn read_bytes(&mut self, len: u32) -> Vec<u8> {
         let mut name_bytes = vec![0u8; len as usize];
         self.file.read_exact(&mut name_bytes).unwrap();
         return name_bytes;
+    }
+
+    fn read_utf8(&mut self, len: u32) -> String {
+        let name_bytes = self.read_bytes(len);
+        String::from_utf8(name_bytes).unwrap()
     }
 
     fn read_uint32(&mut self) -> u32 {
@@ -85,6 +129,14 @@ impl Parser {
         self.read_varuint_impl(len).unwrap().0
     }
 
+    fn read_varuint32(&mut self) -> u32 {
+        self.read_varuint(32) as u32
+    }
+
+    fn read_varuint64(&mut self) -> u64 {
+        self.read_varuint(64)
+    }
+
     fn read_varint_impl(&mut self, len: i32) -> Option<(i64, u64)> {
         let mut res: i64 = 0;
         let mut shift = 0;
@@ -113,6 +165,23 @@ impl Parser {
         self.read_varint_impl(len).unwrap().0
     }
 
+    // ----------
+
+    fn read_name_map(&mut self) -> Vec<Naming> {
+        let count = self.read_varuint32();
+        let mut names = Vec::<Naming>::new();
+        for _ in 0..count {
+            let index = self.read_varuint32() as u32;
+            let name_len = self.read_varuint32();
+            let name_str = self.read_utf8(name_len);
+            let naming = Naming::new(index, name_str);
+            names.push(naming)
+        }
+        return names;
+    }
+
+    // ----------
+
     fn parse(&mut self) {
         self.parse_preamble();
 
@@ -140,14 +209,13 @@ impl Parser {
             None => return false,
         };
         print!(" ## Parsing section ...");
-        let payload_len = self.read_varuint(32);
-        let mut name_offset: u64 = 0;
+        let payload_len = self.read_varuint32();
+        let mut name_offset: u32 = 0;
         let mut name: String = String::new();
         if sec_id == 0 {
             let (name_len, name_len_field_size) = self.read_varuint_impl(32).unwrap();
-            name_offset = (name_len_field_size as u64) + name_len;
-            let name_bytes = self.read_bytes(name_len);
-            name = String::from_utf8(name_bytes).unwrap();
+            name_offset = (name_len_field_size + name_len) as u32;
+            name = self.read_utf8(name_len as u32);
             println!("[name = '{}']", name)
         } else {
             println!("[id = {}]", sec_id);
@@ -181,19 +249,67 @@ impl Parser {
         return true;
     }
 
-    fn parse_section_todo(&mut self, payload_len: u64) {
+    fn parse_section_todo(&mut self, payload_len: u32) {
         println!("  # Parsing section (TODO)");
         self.read_bytes(payload_len);
         println!("  + Parsing section (TODO) done");
     }
 
-    fn parse_name_custom_section(&mut self, payload_len: u64) {
+    fn parse_name_custom_section(&mut self, payload_len: u32) {
         println!("  # Parsing name custom section");
-        let payload = self.read_bytes(payload_len);
-        println!("  + Parsing name custom section done");
+        let init_offset = self.get_current_offset();
+        //name_module_section = None
+        //name_function_section = None
+        //name_local_section = None
+        //name_subsections = []
+        while self.get_read_len(init_offset) < payload_len {
+            let name_type = NameType::from_int(self.read_varuint(7));
+            let name_payload_len = self.read_varuint32();
+            // enforce ordering and uniqueness of the sections with assertions
+            match name_type {
+                NameType::Module => {
+                    //assert!(name_module_section is None and name_function_section is None and name_local_section is None);
+                    let name_len = self.read_varuint32();
+                    let name_str = self.read_utf8(name_len);
+                    println!("{}", name_str);
+                    // name_module_section = (name_str,)
+                }
+                NameType::Function => {
+                    //assert name_function_section is None and name_local_section is None
+                    let name_map = self.read_name_map();
+                    println!("{:?}", name_map);
+                    //name_function_section = name_map
+                }
+                NameType::Local => {
+                    //assert name_local_section is None
+                    let count = self.read_varuint32();
+                    // let funcs = [];
+                    for _ in 0..count {
+                        let index = self.read_varuint32();
+                        let local_map = self.read_name_map();
+                        println!("{}: {:?}", index, local_map);
+                        //func = (index, local_map);
+                        // funcs.push(func);
+                    }
+                    // name_local_section = funcs
+                }
+                _ => {
+                    let name_payload_data = self.read_bytes(name_payload_len);
+                    let name_payload = name_payload_data;
+                    let subsection = (name_type, name_payload);
+                    println!("{:?}: '{:?}'", subsection.0, subsection.1);
+                    // name_subsections.append(subsection)
+                }
+            }
+        }
+        assert!(self.get_read_len(init_offset) == payload_len);
+        //result = (name_module_section, name_function_section, name_local_section, name_subsections)
+        //println!(result)
+        println!("  + Parsing name custom section done")
+        //return result
     }
 
-    fn parse_custom_section(&mut self, name: &str, payload_len: u64) {
+    fn parse_custom_section(&mut self, name: &str, payload_len: u32) {
         println!("  # Parsing custom section [name = '{}']", name);
         let payload = self.read_bytes(payload_len);
         println!(
@@ -205,13 +321,13 @@ impl Parser {
         // return name, payload
     }
 
-    fn parse_function_section(&mut self, payload_len: u64) {
+    fn parse_function_section(&mut self, payload_len: u32) {
         println!("  # Parsing function section");
         let init_offset = self.get_current_offset();
-        let count = self.read_varuint(32);
+        let count = self.read_varuint32();
         let mut types = Vec::<u32>::new();
         for _ in 0..count {
-            let t = self.read_varuint(32) as u32;
+            let t = self.read_varuint32() as u32;
             types.push(t);
         }
         assert!(self.get_read_len(init_offset) == payload_len);
