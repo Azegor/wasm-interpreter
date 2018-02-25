@@ -17,6 +17,13 @@ static SUPPORTED_VERSION: u32 = 0x1;
 //static endOpcode: i32 = 0x0b;
 
 #[derive(Debug)]
+struct ResizableLimits {
+    flags: bool,
+    initial: u32,
+    maximum: Option<u32>,
+}
+
+#[derive(Debug)]
 enum Type {
     I32 = 0x7f,
     I64 = 0x7e,
@@ -207,6 +214,21 @@ impl Parser {
     fn read_value_type(&mut self) -> Type {
         let ptype = self.read_varuint7();
         Type::value_type(ptype)
+    }
+
+    fn read_resizable_limits(&mut self) -> ResizableLimits {
+        let limits_flag = self.read_varuint1();
+        let limits_initial = self.read_varuint32();
+        let limits_maximum = if limits_flag {
+            Some(self.read_varuint32())
+        } else {
+            None
+        };
+        ResizableLimits {
+            flags: limits_flag,
+            initial: limits_initial,
+            maximum: limits_maximum,
+        }
     }
 
     // ----------

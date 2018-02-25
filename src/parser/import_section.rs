@@ -1,7 +1,4 @@
-use parser::{Parser, Type};
-
-#[derive(Debug)]
-struct ResizableLimits(bool, u32, Option<u32>);
+use parser::{Parser, ResizableLimits, Type};
 
 #[derive(Debug)]
 enum ExternalKind {
@@ -23,17 +20,6 @@ impl Parser {
             3 => self.read_ext_global_type(),
             _ => panic!("Unknown ExternalKind value"),
         }
-    }
-
-    fn read_resizable_limits(&mut self) -> ResizableLimits {
-        let limits_flag = self.read_varuint1();
-        let limits_initial = self.read_varuint32();
-        let limits_maximum = if limits_flag {
-            Some(self.read_varuint32())
-        } else {
-            None
-        };
-        ResizableLimits(limits_flag, limits_initial, limits_maximum)
     }
 
     fn read_ext_func_type(&mut self) -> ExternalKind {
