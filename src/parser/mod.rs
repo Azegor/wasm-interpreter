@@ -6,6 +6,9 @@ mod import_section;
 mod function_section;
 mod table_section;
 mod memory_section;
+mod global_section;
+
+mod opcode;
 
 use std::fs::File;
 use std::io::Read;
@@ -278,7 +281,7 @@ impl Parser {
             0x3 => self.parse_function_section(payload_data_len),
             0x4 => self.parse_table_section(payload_data_len),
             0x5 => self.parse_memory_section(payload_data_len), // memory
-            0x6 => self.parse_section_todo(payload_data_len),   // global
+            0x6 => self.parse_global_section(payload_data_len), // global
             0x7 => self.parse_section_todo(payload_data_len),   // export
             0x8 => self.parse_section_todo(payload_data_len),   // start
             0x9 => self.parse_section_todo(payload_data_len),   // element
