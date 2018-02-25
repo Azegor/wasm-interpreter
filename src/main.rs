@@ -253,17 +253,15 @@ impl Parser {
 
     // ----------
 
+    fn read_naming(&mut self) -> Naming {
+        let index = self.read_varuint32() as u32;
+        let name_len = self.read_varuint32();
+        let name_str = self.read_utf8(name_len);
+        Naming::new(index, name_str)
+    }
+
     fn read_name_map(&mut self) -> Vec<Naming> {
-        let count = self.read_varuint32();
-        let mut names = Vec::<Naming>::new();
-        for _ in 0..count {
-            let index = self.read_varuint32() as u32;
-            let name_len = self.read_varuint32();
-            let name_str = self.read_utf8(name_len);
-            let naming = Naming::new(index, name_str);
-            names.push(naming)
-        }
-        return names;
+        self.read_vu32_times(Parser::read_naming)
     }
 
     fn read_external_kind(&mut self) -> ExternalKind {
@@ -327,6 +325,19 @@ impl Parser {
             None
         };
         FuncType(form, param_types, return_type)
+    }
+
+    fn read_n_times<T>(&mut self, callback: fn(p: &mut Parser) -> T, n: u32) -> Vec<T> {
+        let mut res = Vec::<T>::new();
+        for _ in 0..n {
+            res.push(callback(self));
+        }
+        return res;
+    }
+
+    fn read_vu32_times<T>(&mut self, callback: fn(p: &mut Parser) -> T) -> Vec<T> {
+        let n = self.read_varuint32();
+        self.read_n_times(callback, n)
     }
 
     // ----------
@@ -433,14 +444,12 @@ impl Parser {
                 }
                 NameType::Local => {
                     assert!(name_local_section.is_none());
-                    let count = self.read_varuint32();
-                    let mut locals = Vec::<(u32, Vec<Naming>)>::new();
-                    for _ in 0..count {
-                        let index = self.read_varuint32();
-                        let local_map = self.read_name_map();
-                        let mut local = (index, local_map);
-                        locals.push(local);
+                    fn read_local_entry(p: &mut Parser) -> (u32, Vec<Naming>) {
+                        let index = p.read_varuint32();
+                        let local_map = p.read_name_map();
+                        (index, local_map)
                     }
+                    let locals = self.read_vu32_times(read_local_entry);
                     name_local_section = Some(locals);
                 }
                 _ => {
@@ -478,48 +487,42 @@ impl Parser {
     fn parse_type_section(&mut self, payload_len: u32) {
         println!("  # Parsing type section");
         let init_offset = self.get_current_offset();
-        let count = self.read_varuint32();
-        let mut types = Vec::<FuncType>::new();
-        for _ in 0..count {
-            types.push(self.read_func_type());
-        }
+        let types = self.read_vu32_times(Parser::read_func_type);
         assert!(self.get_read_len(init_offset) == payload_len as u64);
         println!("{:?}", types);
         println!("  + Parsing type section done");
         // return types
     }
 
+    fn read_import_entry(&mut self) -> ImportEntry {
+        let module_len = self.read_varuint32();
+        let module_str = self.read_utf8(module_len);
+        let field_len = self.read_varuint32();
+        let field_str = self.read_utf8(field_len);
+        let typ = self.read_external_kind();
+        ImportEntry(module_str, field_str, typ)
+    }
+
     fn parse_import_section(&mut self, payload_len: u32) {
         println!("  # Parsing import section");
         let init_offset = self.get_current_offset();
-        let count = self.read_varuint32();
-        let mut entries = Vec::<ImportEntry>::new();
-        for _ in 0..count {
-            let module_len = self.read_varuint32();
-            let module_str = self.read_utf8(module_len);
-            let field_len = self.read_varuint32();
-            let field_str = self.read_utf8(field_len);
-            let typ = self.read_external_kind();
-            let import_entry = ImportEntry(module_str, field_str, typ);
-            entries.push(import_entry);
-        }
+        let entries = self.read_vu32_times(Parser::read_import_entry);
         assert!(self.get_read_len(init_offset) == payload_len as u64);
         println!("{:?}", entries);
         println!("  + Parsing import section done");
         //return entries;
     }
 
+    fn read_fn_id(&mut self) -> FnId {
+        FnId(self.read_varuint32())
+    }
+
     fn parse_function_section(&mut self, payload_len: u32) {
         println!("  # Parsing function section");
         let init_offset = self.get_current_offset();
-        let count = self.read_varuint32();
-        let mut types = Vec::<FnId>::new();
-        for _ in 0..count {
-            let t = FnId(self.read_varuint32());
-            types.push(t);
-        }
+        let ids = self.read_vu32_times(Parser::read_fn_id);
         assert!(self.get_read_len(init_offset) == payload_len as u64);
-        println!("{:?}", types);
+        println!("{:?}", ids);
         println!("  + Parsing function section done");
         // return types
     }
