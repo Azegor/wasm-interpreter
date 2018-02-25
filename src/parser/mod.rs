@@ -4,6 +4,7 @@ mod custom_section;
 mod type_section;
 mod import_section;
 mod function_section;
+mod table_section;
 
 use std::fs::File;
 use std::io::Read;
@@ -274,7 +275,7 @@ impl Parser {
             0x1 => self.parse_type_section(payload_data_len),
             0x2 => self.parse_import_section(payload_data_len),
             0x3 => self.parse_function_section(payload_data_len),
-            0x4 => self.parse_section_todo(payload_data_len), // table
+            0x4 => self.parse_table_section(payload_data_len),
             0x5 => self.parse_section_todo(payload_data_len), // memory
             0x6 => self.parse_section_todo(payload_data_len), // global
             0x7 => self.parse_section_todo(payload_data_len), // export
