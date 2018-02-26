@@ -2,7 +2,7 @@ extern crate byteorder;
 
 mod custom_section;
 mod type_section;
-mod import_section;
+mod import_export_section;
 mod function_section;
 mod table_section;
 mod memory_section;
@@ -121,6 +121,11 @@ impl Parser {
     fn read_utf8(&mut self, len: u32) -> String {
         let name_bytes = self.read_bytes(len);
         String::from_utf8(name_bytes).unwrap()
+    }
+
+    fn read_utf8_str_vu32(&mut self) -> String {
+        let len = self.read_varuint32();
+        self.read_utf8(len)
     }
 
     fn read_uint32(&mut self) -> u32 {
@@ -280,13 +285,13 @@ impl Parser {
             0x2 => self.parse_import_section(payload_data_len),
             0x3 => self.parse_function_section(payload_data_len),
             0x4 => self.parse_table_section(payload_data_len),
-            0x5 => self.parse_memory_section(payload_data_len), // memory
-            0x6 => self.parse_global_section(payload_data_len), // global
-            0x7 => self.parse_section_todo(payload_data_len),   // export
-            0x8 => self.parse_section_todo(payload_data_len),   // start
-            0x9 => self.parse_section_todo(payload_data_len),   // element
-            0xA => self.parse_section_todo(payload_data_len),   // code
-            0xB => self.parse_section_todo(payload_data_len),   // data
+            0x5 => self.parse_memory_section(payload_data_len),
+            0x6 => self.parse_global_section(payload_data_len),
+            0x7 => self.parse_export_section(payload_data_len),
+            0x8 => self.parse_section_todo(payload_data_len), // start
+            0x9 => self.parse_section_todo(payload_data_len), // element
+            0xA => self.parse_section_todo(payload_data_len), // code
+            0xB => self.parse_section_todo(payload_data_len), // data
             _ => panic!("Unknown Section ID!"),
         }
 

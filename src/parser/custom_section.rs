@@ -50,9 +50,8 @@ impl NameType {
 impl Parser {
     fn read_naming(&mut self) -> Naming {
         let index = self.read_varuint32() as u32;
-        let name_len = self.read_varuint32();
-        let name_str = self.read_utf8(name_len);
-        Naming::new(index, name_str)
+        let name = self.read_utf8_str_vu32();
+        Naming::new(index, name)
     }
 
     fn read_name_map(&mut self) -> Vec<Naming> {
@@ -80,9 +79,8 @@ impl Parser {
                         name_module_section.is_none() && name_function_section.is_none()
                             && name_local_section.is_none()
                     );
-                    let name_len = self.read_varuint32();
-                    let name_str = self.read_utf8(name_len);
-                    name_module_section = Some(name_str);
+                    let name = self.read_utf8_str_vu32();
+                    name_module_section = Some(name);
                 }
                 NameType::Function => {
                     assert!(name_function_section.is_none() && name_local_section.is_none());

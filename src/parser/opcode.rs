@@ -216,7 +216,7 @@ impl Parser {
     pub fn read_op(&mut self) -> Op {
         let b = self.read_byte();
         // TODO: parse payload!!!
-        Op(opcode_from_byte(b)) // TODO!!!
+        Op(opcode_from_byte(b))
     }
     pub fn read_init_expr(&mut self) -> InitExpr {
         let op = self.read_op();
