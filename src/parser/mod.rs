@@ -10,6 +10,7 @@ mod global_section;
 mod start_section;
 mod element_section;
 mod code_section;
+mod data_section;
 
 mod opcode;
 
@@ -179,10 +180,6 @@ impl Parser {
         self.read_varuint(32) as u32
     }
 
-    fn read_varuint64(&mut self) -> u64 {
-        self.read_varuint(64)
-    }
-
     fn read_varint_len(&mut self, len: i32) -> (i64, u64) {
         let mut res: i64 = 0;
         let mut shift = 0;
@@ -300,18 +297,12 @@ impl Parser {
             0x7 => self.parse_export_section(payload_data_len),
             0x8 => self.parse_start_section(payload_data_len),
             0x9 => self.parse_element_section(payload_data_len),
-            0xA => self.parse_code_section(payload_data_len), // code
-            0xB => self.parse_section_todo(payload_data_len), // data
+            0xA => self.parse_code_section(payload_data_len),
+            0xB => self.parse_data_section(payload_data_len),
             _ => panic!("Unknown Section ID!"),
         }
 
         println!(" ++ Done parsing section");
-    }
-
-    fn parse_section_todo(&mut self, payload_len: u32) {
-        println!("  # Parsing section (TODO)");
-        self.read_bytes(payload_len);
-        println!("  + Parsing section (TODO) done");
     }
 
     pub fn parse(&mut self) {
