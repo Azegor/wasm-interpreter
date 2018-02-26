@@ -1,7 +1,4 @@
-use parser::Parser;
-
-#[derive(Debug)]
-struct FnId(u32);
+use parser::{FnId, Parser};
 
 impl Parser {
     fn read_fn_id(&mut self) -> FnId {

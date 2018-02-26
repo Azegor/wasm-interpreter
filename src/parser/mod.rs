@@ -7,6 +7,7 @@ mod function_section;
 mod table_section;
 mod memory_section;
 mod global_section;
+mod start_section;
 
 mod opcode;
 
@@ -29,6 +30,10 @@ struct ResizableLimits {
 }
 
 #[derive(Debug)]
+struct FnId(u32);
+
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
 enum Type {
     I32 = 0x7f,
     I64 = 0x7e,
@@ -288,7 +293,7 @@ impl Parser {
             0x5 => self.parse_memory_section(payload_data_len),
             0x6 => self.parse_global_section(payload_data_len),
             0x7 => self.parse_export_section(payload_data_len),
-            0x8 => self.parse_section_todo(payload_data_len), // start
+            0x8 => self.parse_start_section(payload_data_len),
             0x9 => self.parse_section_todo(payload_data_len), // element
             0xA => self.parse_section_todo(payload_data_len), // code
             0xB => self.parse_section_todo(payload_data_len), // data
