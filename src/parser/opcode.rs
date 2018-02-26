@@ -1,4 +1,4 @@
-use parser::Parser;
+use parser::{Parser, Type};
 
 use std::mem;
 
@@ -10,12 +10,9 @@ fn opcode_from_byte(b: u8) -> Opcode {
 }
 
 #[derive(Debug)]
-pub struct Op(Opcode);
-
-#[derive(Debug)]
 pub struct InitExpr(Op);
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(u8)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
@@ -212,11 +209,86 @@ enum Opcode {
     f64_reinterpret_i64 = 0xbf,
 }
 
+#[derive(Debug)]
+enum Payload {
+    None,
+    BlockType(Type),
+    VU32(u32),
+    VU64(u64),
+    VI32(i32),
+    VI64(i64),
+    F32(f32),
+    F64(f64),
+    BrTable {
+        target_table: Vec<u32>,
+        default_target: u32,
+    },
+    MemoryImmediate {
+        flags: u32,
+        offset: u32,
+    },
+    Reserved,
+}
+
+#[derive(Debug)]
+pub struct Op(Opcode, Payload);
+
 impl Parser {
+    fn read_block_type_payload(&mut self) -> Payload {
+        Payload::BlockType(Type::block_type(self.read_varuint7()))
+    }
+    fn read_vu32_payload(&mut self) -> Payload {
+        Payload::VU32(self.read_varuint32())
+    }
+    fn read_br_table_payload(&mut self) -> Payload {
+        Payload::BrTable {
+            target_table: self.read_vu32_times(Parser::read_varuint32),
+            default_target: self.read_varuint32(),
+        }
+    }
+    fn read_memory_immediate_payload(&mut self) -> Payload {
+        Payload::MemoryImmediate {
+            flags: self.read_varuint32(),
+            offset: self.read_varuint32(),
+        }
+    }
+    fn read_reserved_payload(&mut self) -> Payload {
+        self.read_varuint1();
+        Payload::Reserved
+    }
+    fn read_vi32_payload(&mut self) -> Payload {
+        Payload::VI32(self.read_varint32())
+    }
+    fn read_vi64_payload(&mut self) -> Payload {
+        Payload::VI64(self.read_varint64())
+    }
+    fn read_f32_payload(&mut self) -> Payload {
+        Payload::F32(self.read_f32())
+    }
+    fn read_f64_payload(&mut self) -> Payload {
+        Payload::F64(self.read_f64())
+    }
+
+    fn read_payload(&mut self, oc: Opcode) -> Payload {
+        match oc as u8 {
+            0x02...0x04 => self.read_block_type_payload(),
+            0x0c...0x0d | 0x10...0x11 | 0x20...0x24 => self.read_vu32_payload(),
+            0x0e => self.read_br_table_payload(),
+            0x28...0x3e => self.read_memory_immediate_payload(),
+            0x3f...0x40 => self.read_reserved_payload(),
+            0x41 => self.read_vi32_payload(),
+            0x42 => self.read_vi64_payload(),
+            0x43 => self.read_f32_payload(),
+            0x44 => self.read_f64_payload(),
+            _ => Payload::None,
+        }
+    }
+
     pub fn read_op(&mut self) -> Op {
         let b = self.read_byte();
-        // TODO: parse payload!!!
-        Op(opcode_from_byte(b))
+        let opcode = opcode_from_byte(b);
+        let payload = self.read_payload(opcode);
+        Op(opcode, payload)
     }
     pub fn read_init_expr(&mut self) -> InitExpr {
         let op = self.read_op();

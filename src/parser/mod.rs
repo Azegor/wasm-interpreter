@@ -8,6 +8,7 @@ mod table_section;
 mod memory_section;
 mod global_section;
 mod start_section;
+mod element_section;
 
 mod opcode;
 
@@ -149,6 +150,14 @@ impl Parser {
         self.file.read_i64::<LittleEndian>().unwrap()
     }
 
+    fn read_f32(&mut self) -> f32 {
+        self.file.read_f32::<LittleEndian>().unwrap()
+    }
+
+    fn read_f64(&mut self) -> f64 {
+        self.file.read_f64::<LittleEndian>().unwrap()
+    }
+
     fn read_varuint_len(&mut self, len: i32) -> (u64, u64) {
         let mut res: u64 = 0;
         let mut shift = 0;
@@ -209,6 +218,14 @@ impl Parser {
 
     fn read_varint(&mut self, len: i32) -> i64 {
         self.read_varint_len(len).0
+    }
+
+    fn read_varint32(&mut self) -> i32 {
+        self.read_varint(32) as i32
+    }
+
+    fn read_varint64(&mut self) -> i64 {
+        self.read_varint(64)
     }
 
     fn read_n_times<T>(&mut self, callback: fn(p: &mut Parser) -> T, n: u32) -> Vec<T> {
@@ -294,7 +311,7 @@ impl Parser {
             0x6 => self.parse_global_section(payload_data_len),
             0x7 => self.parse_export_section(payload_data_len),
             0x8 => self.parse_start_section(payload_data_len),
-            0x9 => self.parse_section_todo(payload_data_len), // element
+            0x9 => self.parse_element_section(payload_data_len),
             0xA => self.parse_section_todo(payload_data_len), // code
             0xB => self.parse_section_todo(payload_data_len), // data
             _ => panic!("Unknown Section ID!"),

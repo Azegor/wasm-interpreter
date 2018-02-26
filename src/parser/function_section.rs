@@ -1,7 +1,7 @@
 use parser::{FnId, Parser};
 
 impl Parser {
-    fn read_fn_id(&mut self) -> FnId {
+    pub fn read_fn_id(&mut self) -> FnId {
         FnId(self.read_varuint32())
     }
 
