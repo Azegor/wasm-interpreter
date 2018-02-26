@@ -12,11 +12,11 @@ fn opcode_from_byte(b: u8) -> Opcode {
 #[derive(Debug)]
 pub struct InitExpr(Op);
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
-enum Opcode {
+pub enum Opcode {
     unreachable = 0x00,
     nop = 0x01,
     block = 0x02,
@@ -210,7 +210,7 @@ enum Opcode {
 }
 
 #[derive(Debug)]
-enum Payload {
+pub enum Payload {
     None,
     BlockType(Type),
     VU32(u32),
@@ -231,7 +231,10 @@ enum Payload {
 }
 
 #[derive(Debug)]
-pub struct Op(Opcode, Payload);
+pub struct Op {
+    pub opcode: Opcode,
+    pub payload: Payload,
+}
 
 impl Parser {
     fn read_block_type_payload(&mut self) -> Payload {
@@ -288,7 +291,7 @@ impl Parser {
         let b = self.read_byte();
         let opcode = opcode_from_byte(b);
         let payload = self.read_payload(opcode);
-        Op(opcode, payload)
+        Op { opcode, payload }
     }
     pub fn read_init_expr(&mut self) -> InitExpr {
         let op = self.read_op();

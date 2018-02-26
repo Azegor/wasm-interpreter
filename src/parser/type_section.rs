@@ -26,7 +26,7 @@ impl Parser {
         println!("  # Parsing type section");
         let init_offset = self.get_current_offset();
         let types = self.read_vu32_times(Parser::read_func_type);
-        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", types);
         println!("  + Parsing type section done");
         // return types

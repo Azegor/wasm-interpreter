@@ -88,7 +88,7 @@ impl Parser {
         println!("  # Parsing import section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_import_entry);
-        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", entries);
         println!("  + Parsing import section done");
         //return entries;
@@ -104,7 +104,7 @@ impl Parser {
         println!("  # Parsing export section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_export_entry);
-        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", entries);
         println!("  + Parsing export section done");
         //return entries;

@@ -69,7 +69,7 @@ impl Parser {
         type OtherSubSec = (NameType, Vec<u8>);
         let mut name_subsections = Vec::<OtherSubSec>::new();
 
-        while self.get_read_len(init_offset) < payload_len as u64 {
+        while self.get_read_len(init_offset) < payload_len {
             let name_type = NameType::from_int(self.read_varuint7());
             let name_payload_len = self.read_varuint32();
             // enforce ordering and uniqueness of the sections with assertions
@@ -105,7 +105,7 @@ impl Parser {
                 }
             }
         }
-        assert!(self.get_read_len(init_offset) == payload_len as u64);
+        assert!(self.get_read_len(init_offset) == payload_len);
         let result = (
             name_module_section,
             name_function_section,

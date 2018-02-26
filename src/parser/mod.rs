@@ -9,6 +9,7 @@ mod memory_section;
 mod global_section;
 mod start_section;
 mod element_section;
+mod code_section;
 
 mod opcode;
 
@@ -21,7 +22,6 @@ use self::byteorder::{LittleEndian, ReadBytesExt};
 
 static MAGIC_NUM: u32 = 0x6d736100;
 static SUPPORTED_VERSION: u32 = 0x1;
-//static endOpcode: i32 = 0x0b;
 
 #[derive(Debug)]
 struct ResizableLimits {
@@ -106,11 +106,11 @@ impl Parser {
         }
     }
 
-    fn get_current_offset(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap()
+    fn get_current_offset(&mut self) -> u32 {
+        self.file.seek(SeekFrom::Current(0)).unwrap() as u32
     }
 
-    fn get_read_len(&mut self, old: u64) -> u64 {
+    fn get_read_len(&mut self, old: u32) -> u32 {
         self.get_current_offset() - old
     }
 
@@ -136,18 +136,6 @@ impl Parser {
 
     fn read_uint32(&mut self) -> u32 {
         self.file.read_u32::<LittleEndian>().unwrap()
-    }
-
-    fn read_int32(&mut self) -> i32 {
-        self.file.read_i32::<LittleEndian>().unwrap()
-    }
-
-    fn read_uint64(&mut self) -> u64 {
-        self.file.read_u64::<LittleEndian>().unwrap()
-    }
-
-    fn read_int64(&mut self) -> i64 {
-        self.file.read_i64::<LittleEndian>().unwrap()
     }
 
     fn read_f32(&mut self) -> f32 {
@@ -312,7 +300,7 @@ impl Parser {
             0x7 => self.parse_export_section(payload_data_len),
             0x8 => self.parse_start_section(payload_data_len),
             0x9 => self.parse_element_section(payload_data_len),
-            0xA => self.parse_section_todo(payload_data_len), // code
+            0xA => self.parse_code_section(payload_data_len), // code
             0xB => self.parse_section_todo(payload_data_len), // data
             _ => panic!("Unknown Section ID!"),
         }
@@ -329,7 +317,7 @@ impl Parser {
     pub fn parse(&mut self) {
         self.parse_preamble();
 
-        let file_len = self.file.get_ref().metadata().unwrap().len();
+        let file_len = self.file.get_ref().metadata().unwrap().len() as u32;
         while self.get_current_offset() < file_len {
             self.parse_section();
         }
