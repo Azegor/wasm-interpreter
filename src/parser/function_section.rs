@@ -10,8 +10,6 @@ impl Parser {
         let init_offset = self.get_current_offset();
         let ids = self.read_vu32_times(Parser::read_fn_id);
         assert!(self.get_read_len(init_offset) == payload_len);
-        println!("{:?}", ids);
-        println!("  + Parsing function section done");
         return ids;
     }
 }

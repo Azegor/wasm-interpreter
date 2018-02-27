@@ -33,8 +33,6 @@ impl Parser {
         let init_offset = self.get_current_offset();
         let globals = self.read_vu32_times(Parser::read_global_variable);
         assert!(self.get_read_len(init_offset) == payload_len);
-        println!("{:?}", globals);
-        println!("  + Parsing global section done");
         return globals;
     }
 }

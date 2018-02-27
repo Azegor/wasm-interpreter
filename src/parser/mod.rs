@@ -20,6 +20,7 @@ use std::io::{Seek, SeekFrom};
 use std::io::BufReader;
 use std::string::String;
 use self::byteorder::{LittleEndian, ReadBytesExt};
+use std::fmt;
 
 static MAGIC_NUM: u32 = 0x6d736100;
 static SUPPORTED_VERSION: u32 = 0x1;
@@ -142,6 +143,19 @@ impl ParseResult {
         }
     }
 }
+
+/*
+impl fmt::Debug for PoParseResultint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Point {{ x: {}, y: {} }}", self.x, self.y)
+    }
+}
+
+fn to_hex_string(bytes: &Vec<u8>) -> String {
+    let strs: Vec<String> = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    strs.join(" ")
+}
+*/
 
 pub struct Parser {
     file: BufReader<File>,
@@ -351,8 +365,6 @@ impl Parser {
             0xB => result.data_entries = Some(self.parse_data_section(payload_data_len)),
             _ => panic!("Unknown Section ID!"),
         }
-
-        println!(" ++ Done parsing section");
     }
 
     pub fn parse(&mut self) -> ParseResult {

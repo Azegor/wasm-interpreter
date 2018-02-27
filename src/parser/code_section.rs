@@ -34,10 +34,6 @@ impl Parser {
         }
         let end = self.read_op();
         assert!(end.opcode == Opcode::end);
-        println!(
-            "{:?}",
-            (&locals, &code[0..(cmp::min(code.len(), 2))], "etc.")
-        );
         FnBody { locals, code }
     }
 
@@ -46,7 +42,6 @@ impl Parser {
         let init_offset = self.get_current_offset();
         let bodies = self.read_vu32_times(Parser::read_fn_body);
         assert!(self.get_read_len(init_offset) == payload_len);
-        println!("  + Parsing code section done");
         return bodies;
     }
 }

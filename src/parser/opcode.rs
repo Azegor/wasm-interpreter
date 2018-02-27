@@ -214,7 +214,6 @@ pub enum Payload {
     None,
     BlockType(Type),
     VU32(u32),
-    VU64(u64),
     VI32(i32),
     VI64(i64),
     F32(f32),

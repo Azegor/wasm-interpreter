@@ -17,8 +17,6 @@ impl Parser {
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_table_type);
         assert!(self.get_read_len(init_offset) == payload_len);
-        println!("{:?}", entries);
-        println!("  + Parsing table section done");
         return entries;
     }
 }
