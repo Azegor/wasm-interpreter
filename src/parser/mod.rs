@@ -1,16 +1,16 @@
 extern crate byteorder;
 
-mod custom_section;
-mod type_section;
-mod import_export_section;
-mod function_section;
-mod table_section;
-mod memory_section;
-mod global_section;
-mod start_section;
-mod element_section;
-mod code_section;
-mod data_section;
+pub mod custom_section;
+pub mod type_section;
+pub mod import_export_section;
+pub mod function_section;
+pub mod table_section;
+pub mod memory_section;
+pub mod global_section;
+pub mod start_section;
+pub mod element_section;
+pub mod code_section;
+pub mod data_section;
 
 mod opcode;
 
@@ -20,7 +20,6 @@ use std::io::{Seek, SeekFrom};
 use std::io::BufReader;
 use std::string::String;
 use self::byteorder::{LittleEndian, ReadBytesExt};
-use std::fmt;
 
 static MAGIC_NUM: u32 = 0x6d736100;
 static SUPPORTED_VERSION: u32 = 0x1;
@@ -48,6 +47,7 @@ pub enum Type {
 }
 
 impl Type {
+    /*
     fn from_int(int: u8) -> Type {
         match int {
             0x7f => Type::I32,
@@ -60,6 +60,7 @@ impl Type {
             _ => panic!("unknown Type value!"),
         }
     }
+    */
 
     fn value_type(int: u8) -> Type {
         match int {
@@ -107,7 +108,7 @@ use self::element_section::ElemSegment;
 use self::code_section::FnBody;
 use self::data_section::DataEntry;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ParseResult {
     pub namings: Option<Namings>,
     pub custom_sections: Vec<CustomSection>,
@@ -126,21 +127,7 @@ pub struct ParseResult {
 
 impl ParseResult {
     fn new() -> ParseResult {
-        ParseResult {
-            namings: None,
-            custom_sections: Vec::<CustomSection>::new(),
-            function_types: None,
-            import_entires: None,
-            function_ids: None,
-            table_entries: None,
-            memory_types: None,
-            global_variables: None,
-            export_entires: None,
-            start_function: None,
-            element_segments: None,
-            function_bodies: None,
-            data_entries: None,
-        }
+        Default::default()
     }
 }
 

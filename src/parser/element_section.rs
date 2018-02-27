@@ -24,7 +24,7 @@ impl Parser {
         println!("  # Parsing element section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_element);
-        assert!(self.get_read_len(init_offset) == payload_len);
+        assert_eq!(self.get_read_len(init_offset), payload_len);
         return entries;
     }
 }

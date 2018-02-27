@@ -109,7 +109,7 @@ impl Parser {
                 }
             }
         }
-        assert!(self.get_read_len(init_offset) == payload_len);
+        assert_eq!(self.get_read_len(init_offset), payload_len);
         let result = Namings {
             module,
             functions,

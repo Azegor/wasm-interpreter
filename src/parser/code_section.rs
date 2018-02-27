@@ -1,6 +1,5 @@
 use parser::{Parser, Type};
 use parser::opcode::{Op, Opcode};
-use std::cmp;
 
 #[derive(Debug)]
 struct Local {
@@ -41,7 +40,7 @@ impl Parser {
         println!("  # Parsing code section");
         let init_offset = self.get_current_offset();
         let bodies = self.read_vu32_times(Parser::read_fn_body);
-        assert!(self.get_read_len(init_offset) == payload_len);
+        assert_eq!(self.get_read_len(init_offset), payload_len);
         return bodies;
     }
 }
