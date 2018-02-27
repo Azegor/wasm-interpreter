@@ -25,10 +25,10 @@ static MAGIC_NUM: u32 = 0x6d736100;
 static SUPPORTED_VERSION: u32 = 0x1;
 
 #[derive(Debug)]
-struct ResizableLimits {
-    flags: bool,
-    initial: u32,
-    maximum: Option<u32>,
+pub struct ResizableLimits {
+    pub flags: bool,
+    pub initial: u32,
+    pub maximum: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -151,7 +151,7 @@ pub struct Parser {
 impl Parser {
     pub fn new() -> Parser {
         Parser {
-            file: BufReader::new(File::open("examples/hello.wasm").unwrap()),
+            file: BufReader::new(File::open("examples/wasm_test.wasm").unwrap()),
         }
     }
 

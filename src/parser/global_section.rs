@@ -2,15 +2,15 @@ use parser::{Parser, Type};
 use parser::opcode::InitExpr;
 
 #[derive(Debug)]
-struct GlobalType {
-    content_type: Type,
-    mutability: bool,
+pub struct GlobalType {
+    pub content_type: Type,
+    pub mutability: bool,
 }
 
 #[derive(Debug)]
 pub struct GlobalVariable {
-    typ: GlobalType,
-    init: InitExpr,
+    pub typ: GlobalType,
+    pub init: InitExpr,
 }
 
 impl Parser {

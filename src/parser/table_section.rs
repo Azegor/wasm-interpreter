@@ -2,8 +2,8 @@ use parser::{Parser, ResizableLimits, Type};
 
 #[derive(Debug)]
 pub struct TableEntry {
-    typ: Type,
-    limits: ResizableLimits,
+    pub typ: Type,
+    pub limits: ResizableLimits,
 }
 
 impl Parser {

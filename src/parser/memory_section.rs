@@ -2,7 +2,7 @@ use parser::{Parser, ResizableLimits};
 
 #[derive(Debug)]
 pub struct MemoryType {
-    limits: ResizableLimits,
+    pub limits: ResizableLimits,
 }
 
 impl Parser {
