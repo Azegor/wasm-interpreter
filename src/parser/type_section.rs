@@ -1,7 +1,7 @@
 use parser::{Parser, Type};
 
 #[derive(Debug)]
-struct FuncType {
+pub struct FuncType {
     form: Type,
     param_types: Vec<Type>,
     return_type: Option<Type>,
@@ -22,13 +22,13 @@ impl Parser {
             return_type,
         }
     }
-    pub fn parse_type_section(&mut self, payload_len: u32) {
+    pub fn parse_type_section(&mut self, payload_len: u32) -> Vec<FuncType> {
         println!("  # Parsing type section");
         let init_offset = self.get_current_offset();
         let types = self.read_vu32_times(Parser::read_func_type);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", types);
         println!("  + Parsing type section done");
-        // return types
+        return types;
     }
 }

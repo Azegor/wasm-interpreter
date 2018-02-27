@@ -5,6 +5,8 @@ use parser::Parser;
 fn main() {
     println!("WASM PARSER\n===========");
     let mut parser = Parser::new();
-    parser.parse();
+    let res = parser.parse();
     println!("===========\nDONE");
+    println!("===========COMPLETE PARSE RESULT:===========\n");
+    println!("{:?}", res);
 }

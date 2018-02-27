@@ -9,7 +9,7 @@ struct Local {
 }
 
 #[derive(Debug)]
-struct FnBody {
+pub struct FnBody {
     locals: Vec<Local>,
     code: Vec<Op>,
 }
@@ -41,12 +41,12 @@ impl Parser {
         FnBody { locals, code }
     }
 
-    pub fn parse_code_section(&mut self, payload_len: u32) {
+    pub fn parse_code_section(&mut self, payload_len: u32) -> Vec<FnBody> {
         println!("  # Parsing code section");
         let init_offset = self.get_current_offset();
         let bodies = self.read_vu32_times(Parser::read_fn_body);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("  + Parsing code section done");
-        // return bodies
+        return bodies;
     }
 }

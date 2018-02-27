@@ -2,7 +2,8 @@ use parser::Parser;
 use parser::opcode::InitExpr;
 use std::cmp;
 
-struct DataEntry {
+#[derive(Debug)]
+pub struct DataEntry {
     index: u32,
     offset: InitExpr,
     data: Vec<u8>,
@@ -26,7 +27,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_data_section(&mut self, payload_len: u32) {
+    pub fn parse_data_section(&mut self, payload_len: u32) -> Vec<DataEntry> {
         // custom name section needs to be parsed after the data section!
         //assert!(self.resData.name_section.is_none());
         println!("  # Parsing data section");
@@ -34,6 +35,6 @@ impl Parser {
         let entries = self.read_vu32_times(Parser::read_data_entry);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("  + Parsing data section done");
-        //return entries
+        return entries;
     }
 }

@@ -2,7 +2,7 @@ use parser::{FnId, Parser};
 use parser::opcode::InitExpr;
 
 #[derive(Debug)]
-struct ElemSegment {
+pub struct ElemSegment {
     index: u32,
     offset: InitExpr,
     elems: Vec<FnId>,
@@ -20,13 +20,13 @@ impl Parser {
         }
     }
 
-    pub fn parse_element_section(&mut self, payload_len: u32) {
+    pub fn parse_element_section(&mut self, payload_len: u32) -> Vec<ElemSegment> {
         println!("  # Parsing element section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_element);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", entries);
         println!("  + Parsing element section done");
-        // return entries;
+        return entries;
     }
 }

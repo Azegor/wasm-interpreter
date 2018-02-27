@@ -17,7 +17,7 @@ enum ExternalKindType {
 }
 
 #[derive(Debug)]
-struct ImportEntry {
+pub struct ImportEntry {
     module: String,
     field: String,
     kind: ExternalKind,
@@ -25,7 +25,7 @@ struct ImportEntry {
 }
 
 #[derive(Debug)]
-struct ExportEntry {
+pub struct ExportEntry {
     field: String,
     kind: ExternalKind,
     index: u32,
@@ -84,14 +84,14 @@ impl Parser {
         }
     }
 
-    pub fn parse_import_section(&mut self, payload_len: u32) {
+    pub fn parse_import_section(&mut self, payload_len: u32) -> Vec<ImportEntry> {
         println!("  # Parsing import section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_import_entry);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", entries);
         println!("  + Parsing import section done");
-        //return entries;
+        return entries;
     }
     fn read_export_entry(&mut self) -> ExportEntry {
         let field = self.read_utf8_str_vu32();
@@ -100,13 +100,13 @@ impl Parser {
         ExportEntry { field, kind, index }
     }
 
-    pub fn parse_export_section(&mut self, payload_len: u32) {
+    pub fn parse_export_section(&mut self, payload_len: u32) -> Vec<ExportEntry> {
         println!("  # Parsing export section");
         let init_offset = self.get_current_offset();
         let entries = self.read_vu32_times(Parser::read_export_entry);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", entries);
         println!("  + Parsing export section done");
-        //return entries;
+        return entries;
     }
 }

@@ -8,7 +8,7 @@ struct GlobalType {
 }
 
 #[derive(Debug)]
-struct GlobalVariable {
+pub struct GlobalVariable {
     typ: GlobalType,
     init: InitExpr,
 }
@@ -28,13 +28,13 @@ impl Parser {
         let init = self.read_init_expr();
         GlobalVariable { typ, init }
     }
-    pub fn parse_global_section(&mut self, payload_len: u32) {
+    pub fn parse_global_section(&mut self, payload_len: u32) -> Vec<GlobalVariable> {
         println!("  # Parsing global section");
         let init_offset = self.get_current_offset();
         let globals = self.read_vu32_times(Parser::read_global_variable);
         assert!(self.get_read_len(init_offset) == payload_len);
         println!("{:?}", globals);
         println!("  + Parsing global section done");
-        //return globals
+        return globals;
     }
 }

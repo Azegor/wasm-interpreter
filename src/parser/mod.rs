@@ -32,11 +32,11 @@ struct ResizableLimits {
 }
 
 #[derive(Debug)]
-struct FnId(u32);
+pub struct FnId(u32);
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
-enum Type {
+pub enum Type {
     I32 = 0x7f,
     I64 = 0x7e,
     F32 = 0x7d,
@@ -96,6 +96,53 @@ impl Type {
     }
 }
 
+use self::custom_section::{CustomSection, Namings};
+use self::type_section::FuncType;
+use self::import_export_section::{ExportEntry, ImportEntry};
+use self::table_section::TableEntry;
+use self::memory_section::MemoryType;
+use self::global_section::GlobalVariable;
+use self::element_section::ElemSegment;
+use self::code_section::FnBody;
+use self::data_section::DataEntry;
+
+#[derive(Debug)]
+pub struct ParseResult {
+    pub namings: Option<Namings>,
+    pub custom_sections: Vec<CustomSection>,
+    pub function_types: Option<Vec<FuncType>>,
+    pub import_entires: Option<Vec<ImportEntry>>,
+    pub function_ids: Option<Vec<FnId>>,
+    pub table_entries: Option<Vec<TableEntry>>,
+    pub memory_types: Option<Vec<MemoryType>>,
+    pub global_variables: Option<Vec<GlobalVariable>>,
+    pub export_entires: Option<Vec<ExportEntry>>,
+    pub start_function: Option<FnId>,
+    pub element_segments: Option<Vec<ElemSegment>>,
+    pub function_bodies: Option<Vec<FnBody>>,
+    pub data_entries: Option<Vec<DataEntry>>,
+}
+
+impl ParseResult {
+    fn new() -> ParseResult {
+        ParseResult {
+            namings: None,
+            custom_sections: Vec::<CustomSection>::new(),
+            function_types: None,
+            import_entires: None,
+            function_ids: None,
+            table_entries: None,
+            memory_types: None,
+            global_variables: None,
+            export_entires: None,
+            start_function: None,
+            element_segments: None,
+            function_bodies: None,
+            data_entries: None,
+        }
+    }
+}
+
 pub struct Parser {
     file: BufReader<File>,
 }
@@ -103,7 +150,7 @@ pub struct Parser {
 impl Parser {
     pub fn new() -> Parser {
         Parser {
-            file: BufReader::new(File::open("examples/wasm_test.wasm").unwrap()),
+            file: BufReader::new(File::open("examples/hello.wasm").unwrap()),
         }
     }
 
@@ -264,7 +311,7 @@ impl Parser {
         println!("done");
     }
 
-    fn parse_section(&mut self) {
+    fn parse_section(&mut self, result: &mut ParseResult) {
         print!(" ## Parsing section ...");
         let sec_id = self.read_varuint7();
         let payload_len = self.read_varuint32();
@@ -283,34 +330,40 @@ impl Parser {
         match sec_id {
             0x0 => {
                 if name == "name" {
-                    self.parse_name_custom_section(payload_data_len);
+                    result.namings = Some(self.parse_name_custom_section(payload_data_len));
                 } else {
-                    self.parse_custom_section(&name, payload_data_len); // some other custom section
+                    // some other custom section
+                    result
+                        .custom_sections
+                        .push(self.parse_custom_section(&name, payload_data_len));
                 }
             }
-            0x1 => self.parse_type_section(payload_data_len),
-            0x2 => self.parse_import_section(payload_data_len),
-            0x3 => self.parse_function_section(payload_data_len),
-            0x4 => self.parse_table_section(payload_data_len),
-            0x5 => self.parse_memory_section(payload_data_len),
-            0x6 => self.parse_global_section(payload_data_len),
-            0x7 => self.parse_export_section(payload_data_len),
-            0x8 => self.parse_start_section(payload_data_len),
-            0x9 => self.parse_element_section(payload_data_len),
-            0xA => self.parse_code_section(payload_data_len),
-            0xB => self.parse_data_section(payload_data_len),
+            0x1 => result.function_types = Some(self.parse_type_section(payload_data_len)),
+            0x2 => result.import_entires = Some(self.parse_import_section(payload_data_len)),
+            0x3 => result.function_ids = Some(self.parse_function_section(payload_data_len)),
+            0x4 => result.table_entries = Some(self.parse_table_section(payload_data_len)),
+            0x5 => result.memory_types = Some(self.parse_memory_section(payload_data_len)),
+            0x6 => result.global_variables = Some(self.parse_global_section(payload_data_len)),
+            0x7 => result.export_entires = Some(self.parse_export_section(payload_data_len)),
+            0x8 => result.start_function = Some(self.parse_start_section(payload_data_len)),
+            0x9 => result.element_segments = Some(self.parse_element_section(payload_data_len)),
+            0xA => result.function_bodies = Some(self.parse_code_section(payload_data_len)),
+            0xB => result.data_entries = Some(self.parse_data_section(payload_data_len)),
             _ => panic!("Unknown Section ID!"),
         }
 
         println!(" ++ Done parsing section");
     }
 
-    pub fn parse(&mut self) {
+    pub fn parse(&mut self) -> ParseResult {
         self.parse_preamble();
+
+        let mut result = ParseResult::new();
 
         let file_len = self.file.get_ref().metadata().unwrap().len() as u32;
         while self.get_current_offset() < file_len {
-            self.parse_section();
+            self.parse_section(&mut result);
         }
+        return result;
     }
 }
